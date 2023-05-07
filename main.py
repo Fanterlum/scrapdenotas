@@ -1,5 +1,7 @@
 import time
 import docx
+from selenium.webdriver.common.keys import Keys
+
 from docx import Document
 from newspaper import Article
 import newspaper
@@ -15,7 +17,7 @@ from docx.shared import RGBColor
 
 # Abrimos las variables para las secciones de tecnologia de todos los noticieros
 
-url_parafrasis = 'https://parafrasist.com/'
+url_parafrasis = 'https://www.parafraseartextos.net/'
 url_Milenio = 'https://www.milenio.com/tecnologia'
 url_ElUniversal = 'https://www.eluniversal.com.mx/tag/tecnologias-de-la-informacion-y-comunicacion'
 url_ElEconomista = 'https://www.eleconomista.com.mx/seccion/tecnologia/'
@@ -51,7 +53,7 @@ def extraerTextoArticulo(url):
     parafrasearLink(mi_Articulo.text)
 
 #https://parafrasist.com  pagina para arafrasis sin revision de bot
-
+# https://www.parafraseartextos.net/ segunda opcion y funcional
 #funcion para traer los links de tecnologia de la pagina
 def traerLosLinks():
     #bandera para reventar el for de las busquedas
@@ -65,7 +67,7 @@ def traerLosLinks():
         tronar += 1
         print(articulo.url)
         urls.append(articulo.url)
-        if(tronar == 2):
+        if(tronar == 3):
             tronar = 0
             break
 
@@ -73,17 +75,17 @@ def traerLosLinks():
         tronar += 1
         print(articulo.url)
         urls.append(articulo.url)
-        if(tronar == 2):
+        if(tronar == 3):
             tronar = 0
             break
 
-    for articulo in universal.articles:
+    """for articulo in universal.articles:
         tronar += 1
         print(articulo.url)
         urls.append(articulo.url)
         if(tronar == 2):
             tronar = 0
-            break
+            break"""""
 
 
 # Seccion de escribir y guardar en el documento word
@@ -130,15 +132,17 @@ def parafrasearLink(texto):
 
     driver = webdriver.Chrome(executable_path='C:/Users/vicen/Downloads/chromedriver.exe')
     driver.get(url_parafrasis)
-    text_area = driver.find_element(By.CLASS_NAME, 'form-text-area')
+    text_area = driver.find_element(By.XPATH, '/html/body/section[1]/div/div/div[2]/div[1]/textarea')
+
     text_area.send_keys(texto)
 
-    button_click = driver.find_element(By.XPATH,'//*[@id="formulary"]/div[5]/button')
+    button_click = driver.find_element(By.XPATH,'/html/body/section[1]/div/div/div[2]/div[1]/div[2]/div[3]/button')
     driver.execute_script("arguments[0].click();", button_click)
-    time.sleep(10)
-    button_click_after = driver.find_element(By.XPATH,'/html/body/div[6]/div/div[3]/button[1]')
-    driver.execute_script("arguments[0].click();", button_click_after)
-    text = driver.find_element(By.XPATH,'//*[@id="appWelcome"]/div[1]/div[1]/div/div[2]/div[2]/div[2]/div/div[2]/div[2]/div[2]/div[1]/div[1]').text
+    time.sleep(60)
+    webdriver.ActionChains(driver).send_keys(Keys.ESCAPE).perform()
+    #button_click_after = driver.find_element(By.XPATH,'/html/body/div[6]/div/div[3]/button[1]')#Podemos hacer que pique escape la compu en lugar de boton
+    #driver.execute_script("arguments[0].click();", button_click_after)
+    text = driver.find_element(By.XPATH,'/html/body/section[1]/div/div/div[2]/div[2]/div[1]').text
     print(text)
     nota.append(text)
     writeonDoc()
