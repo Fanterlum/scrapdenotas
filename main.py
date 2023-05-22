@@ -1,7 +1,9 @@
 import time
 import docx
+import os
+import keyboard
 from selenium.webdriver.common.keys import Keys
-
+import prefect
 from docx import Document
 from newspaper import Article
 import newspaper
@@ -13,7 +15,10 @@ from seleniumbase import BaseCase
 from docx.shared import Inches
 from docx.shared import Pt
 from docx.shared import RGBColor
-
+from prefect import Flow, task, flow
+from selenium.webdriver.common.action_chains import ActionChains
+from selenium.webdriver.common.keys import Keys
+from keyboard import press
 
 # Abrimos las variables para las secciones de tecnologia de todos los noticieros
 
@@ -21,6 +26,7 @@ url_parafrasis = 'https://www.parafraseartextos.net/'
 url_Milenio = 'https://www.milenio.com/tecnologia'
 url_ElUniversal = 'https://www.eluniversal.com.mx/tag/tecnologias-de-la-informacion-y-comunicacion'
 url_ElEconomista = 'https://www.eleconomista.com.mx/seccion/tecnologia/'
+url_Gaceta = 'http://www.gaceta.udg.mx/'
 
 # array para guardar todos los links
 urls = []
@@ -29,8 +35,13 @@ nota = []
 # Aquellas notas que pasen las pruebas seran almacenadas en esta lista
 urls_usados = []
 
+#Variable que guarda el articulo
+
+
+
 # Funcion para extraer el titulo y el texto de cada pagina
 
+@task
 def extraerTextoArticulo(url):
     # Configuramostodo para que el articulo este en español
     mi_Articulo = Article(url, language="es")
@@ -50,11 +61,28 @@ def extraerTextoArticulo(url):
     #extarer articulo
 
     #Llamamos a la funcion para que abra la pagina y edite el texto
-    parafrasearLink(mi_Articulo.text)
+    #parafrasearLink(mi_Articulo.text)
 
+
+    #### agregamostodo a un txt para que no se pierda
+    f = open("nSinParafrasis.txt", "x")  # crear
+    f.close()
+
+    f = open("nSinParafrasis.txt", "a+")  # Leer + Append (agregar al final)
+    f.write(mi_Articulo.title.upper())
+    f.write(mi_Articulo.text)
+    f.write(url)
+    f.close()
+
+    return(mi_Articulo.text)
+
+    pass
 #https://parafrasist.com  pagina para arafrasis sin revision de bot
 # https://www.parafraseartextos.net/ segunda opcion y funcional
 #funcion para traer los links de tecnologia de la pagina
+
+
+@task
 def traerLosLinks():
     #bandera para reventar el for de las busquedas
     tronar = 0
@@ -62,7 +90,18 @@ def traerLosLinks():
     milenio = newspaper.build(url_Milenio, memoize_articles=False)
     universal = newspaper.build(url_ElUniversal, memoize_articles=False)
     economista = newspaper.build(url_ElEconomista, memoize_articles=False)
+    gaceta = newspaper.build(url_Gaceta, memoize_articles=False)
     #Fors para obtener los links de las respectivas paginas
+
+    for articulo in gaceta.articles:
+        tronar += 1
+        print(articulo.url)
+        urls.append(articulo.url)
+        if(tronar == 3):
+            tronar = 0
+            break
+
+
     for articulo in economista.articles:
         tronar += 1
         print(articulo.url)
@@ -86,9 +125,11 @@ def traerLosLinks():
         if(tronar == 2):
             tronar = 0
             break"""""
-
+    pass
 
 # Seccion de escribir y guardar en el documento word
+
+@task
 def writeonDoc():
     # Especificamos en que direccion esta el documento al que vamos a escribir
     doc = Document('D:\\Drive\\ilab_TDI\\Notas\\notas_publicar_ILaB.docx')
@@ -119,23 +160,27 @@ def writeonDoc():
     urls_usados.append(nota[1])
     # Limpiamos la lista para dar paso a la siguiente nota
     nota.clear()
+    pass
 
 
 
 
-
-
+@task
 def parafrasearLink(texto):
 
     #texto = 'Concepto texto. El texto es la unidad superior de comunicación y de la competencia organizacional del hablante. Su extensión es variable y corresponde a un
     #todocomprensible que tiene una finalidad comunicativa en un contexto dado. El carácter comunicativo, pragmático y estructural permiten su identificación.'
 
     driver = webdriver.Chrome(executable_path='C:/Users/vicen/Downloads/chromedriver.exe')
+
     driver.get(url_parafrasis)
-    text_area = driver.find_element(By.XPATH, '/html/body/section[1]/div/div/div[2]/div[1]/textarea')
+
+
+
+    text_area = driver.find_element(By.XPATH, '//*[@id="input_box"]')
 
     text_area.send_keys(texto)
-
+    time.sleep(2)
     button_click = driver.find_element(By.XPATH,'/html/body/section[1]/div/div/div[2]/div[1]/div[2]/div[3]/button')
     driver.execute_script("arguments[0].click();", button_click)
     time.sleep(60)
@@ -145,18 +190,29 @@ def parafrasearLink(texto):
     text = driver.find_element(By.XPATH,'/html/body/section[1]/div/div/div[2]/div[2]/div[1]').text
     print(text)
     nota.append(text)
-    writeonDoc()
 
+    pass
+
+@task
+def imprimirLinksUsados():
+    print("Estos son los URLs usados")
+    for links in urls_usados:
+        print(links)
+    return
 
 
 # Aqui comienza el "main"
+@flow(name="parafraseo")
+def proceso():
+    traerLosLinks()
+    for links in urls:
+        texto = extraerTextoArticulo(links)
+        parafrasearLink(texto)
+        writeonDoc()
+        if(len(urls_usados)>=5):
+            break
+    imprimirLinksUsados()
 
-traerLosLinks()
-for links in urls:
-    extraerTextoArticulo(links)
-    if(len(urls_usados)>=5):
-        break
-print("Estos son los URLs usados")
-for links in urls_usados:
-    print(links)
+if __name__ == "__main__":
+    proceso()
 
